@@ -1,9 +1,11 @@
 # Text mining with MongoDB
-Submission for Project 3 of Sogang University's Database System Class
+서강대학교 데이터베이스 시스템(CSE4110) 프로젝트#3의 제출물
 
 ## 목적
 
-프로젝트 제출물 아카이빙과 코딩 컨벤션에 의거한 간단한 리팩토링을 목적으로 한다.
+1. 프로젝트 제출물 아카이빙
+2. PEP8을 적용해 코드 다듬기
+3. 간단한 리팩토링
 
 ## 문제 정의
 

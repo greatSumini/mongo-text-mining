@@ -9,14 +9,17 @@ from pymongo import MongoClient
 from bson import ObjectId
 from itertools import combinations
 
-stop_word = {}
-DBname = "db20151615"
-conn = MongoClient('dbpurple.sogang.ac.kr')
+# DB info
+DBname = "db******"
+conn = MongoClient('******.sogang.ac.kr')
 db = conn[DBname]
 db.authenticate(DBname, DBname)
 
+# Variables
+stop_word = {}
+
 def make_stop_word():
-    f = open("wordList.txt", 'r')
+    """Make stop_word"""
     while True:
         line = f.readline()
         if not line:
@@ -25,6 +28,7 @@ def make_stop_word():
     f.close()
 
 def printMenu() :
+    """Print menu script"""
     print "0. CopyData"
     print "1. Morph"
     print "2. print morphs"
@@ -33,22 +37,24 @@ def printMenu() :
     print "5. association rule"
 
 def morphing(content):
+    """Make list of encoded non-stop_words"""
     t = MeCab.Tagger('-d/usr/local/lib/mecab/dic/mecab-ko-dic')
     nodes = t.parseToNode(content.encode('utf-8'))
     MorpList = []
     while nodes:
         if nodes.feature[0] == 'N' and nodes.feature[1] == 'N':
-            w = nodes.surface
-            if not w in stop_word:
+            word = nodes.surface
+            if not word in stop_word:
                 try:
-                    w = w.encode('utf-8')
-                    MorpList.append(w)
+                    word = word.encode('utf-8')
+                    MorpList.append(word)
                 except:
                     pass
         nodes = nodes.next
     return MorpList
 
 def p0() :
+    """CopyData news to news_freq"""
     col1 = db['news']
     col2 = db['news_freq']
 
@@ -62,82 +68,82 @@ def p0() :
         col2.insert(contentDic)
 
 def p1():
+    """Morph news and update news db"""
     for doc in db['news_freq'].find():
         doc['morph'] = morphing(doc['content'])
         db['news_freq'].update({"_id":doc['_id']}, doc)
 
 def p2(url):
+    """Print news morph which match url"""
     col = db['news_freq']
     for doc in col.find():
         if doc['url'] == url:
-            for w in doc['morph']:
-                print(w.encode('utf-8'))
+            for word in doc['morph']:
+                print(word.encode('utf-8'))
             break
-    """
-       TODO :
-       input : news url
-       output : news morphs
-    """
 
 def p3():
-    col1 = db['news_freq']
-    col2 = db['news_wordset']
-    col2.drop()
-    for doc in col1.find():
+    """Copy news morph to new db named news_wordset"""
+    col_freq = db['news_freq']
+    col_word = db['news_wordset']
+    col_word.drop()
+    for doc in col_freq.find():
         new_doc = {}
         new_set = set()
-        for w in doc['morph']:
-            new_set.add(w.encode('utf-8'))
+        for word in doc['morph']:
+            new_set.add(word.encode('utf-8'))
         new_doc['word_set'] = list(new_set)
         new_doc['url'] = doc['url']
-        col2.insert(new_doc)
+        col_word.insert(new_doc)
 
 def p4(url):
+    """Print news wordset which match url"""
     col = db['news_wordset']
     for doc in col.find():
         if doc['url'] == url:
-            for w in doc['word_set']:
-                print(w.encode('utf-8'))
+            for word in doc['word_set']:
+                print(word.encode('utf-8'))
             break
-    """
-       TODO :
-       input : news url
-       output : news morphs
-    """
 
 def p5(length):
+    """
+    Make frequent item set of given length
+    Insert new dbs (dbname = candidate_L+"length")
+    ex) db['candidate_L3']
+    Duplicated Code, Long Method - Nedd Refactoring!!
+    """
     col_freq = db['news_freq']
     col_word = db['news_wordset']
-
     min_sup = db.news.count() * 0.1
+
+    temp_list = ()
+    temp_dic = {}
+    temp_set = set()
 
     col_cand1 = db['candidate_L1']
     col_cand1.drop()
-
-    temp_dic = {}
-    temp_set = set()
-    temp_list = list()
+    c1 = list()
+    l1 = list()
     
-    # C1
+    # Make c1
     for doc in col_word.find():
-        for w in doc['word_set']:
-            w = w.encode('utf-8')
-            temp_set.add(w)
+        for word in doc['word_set']:
+            word = word.encode('utf-8')
+            temp_set.add(word)
             if w in temp_dic:
-                temp_dic[w] += 1
+                temp_dic[word] += 1
             else:
-                temp_dic[w] = int(1)
-    temp_list = list(temp_set)
-    temp_list3 = list()
+                temp_dic[word] = int(1)
+    c1 = list(temp_set)
 
-    # L1
-    for w in temp_list:
-        if temp_dic[w] >= min_sup:
+    # Make l1, candidate_L1
+    for word in c1:
+        if temp_dic[word] >= min_sup:
             temp_doc = {}
-            temp_doc['item_set'] = w
-            temp_doc['support'] = temp_dic[w]
+            temp_doc['item_set'] = word
+            temp_doc['support'] = temp_dic[word]
             col_cand1.insert(temp_doc)
-            temp_list3.append(w)
+            l1.append(word)
 
     if length == 1:
         return
@@ -145,28 +151,28 @@ def p5(length):
     col_cand2 = db['candidate_L2']
     col_cand2.drop()
 
-    temp_list2 = list()
-    # C2 - candidate
-    for i in range(0, len(temp_list3)-1):
-        for j in range(i+1, len(temp_list3)):
-            sumin = list()
-            sumin.append(temp_list3[i])
-            sumin.append(temp_list3[j])
-            temp_list2.append(sumin)
+    c2 = list()
+    l2 = list()
 
-    temp_list = list()
+    # Make c2
+    for i in range(0, len(l1)-1):
+        for j in range(i+1, len(l1)):
+            temp_list = list()
+            temp_list.append(l1[i])
+            temp_list.append(l1[j])
+            c2.append(temp_list)
 
-    # C2
-    for wduo in temp_list2:
+    for word_duo in c2:
         count = 0
         for doc in col_word.find():
-            if wduo[0].decode('utf-8') in doc['word_set'] and wduo[1].decode('utf-8') in doc['word_set']:
+            if word_duo[0].decode('utf-8') in doc['word_set'] 
+                    and word_duo[1].decode('utf-8') in doc['word_set']:
                 count += 1
-        #L2
+        # Make l2, candidate_L2
         if count >= min_sup:
-            temp_list.append(wduo)
+            l2.append(word_duo)
             temp_doc = {}
-            temp_doc['item_set'] = wduo
+            temp_doc['item_set'] = word_duo
             temp_doc['support'] = count
             col_cand2.insert(temp_doc)
 
@@ -176,43 +182,42 @@ def p5(length):
     col_cand3 = db['candidate_L3']
     col_cand3.drop()
 
-    count = 0
-    temp_list2 = list()
+    c3 = list()
+    l3 = list()
 
-    # C3 - candidate
-    for i in range(0, len(temp_list) - 1):
-        for j in range(i+1, len(temp_list)):
-            if temp_list[i][1] == temp_list[j][0]:
-                search = list()
-                search.append(temp_list[i][0])
-                search.append(temp_list[j][1])
-                if search in temp_list:
-                    sumin = list(temp_list[i])
-                    sumin.append(temp_list[j][1])
-                    temp_list2.append(sumin)
+    # Make c3
+    for i in range(0, len(l2) - 1):
+        for j in range(i+1, len(l2)):
+            if l2[i][1] == l2[j][0]:
+                # if two words continuous
+                temp_list = list()
+                temp_list.append(l2[i][0])
+                temp_list.append(l2[j][1])
+                if temp_list in l2:
+                    temp_list.append(l2[i][1])
+                    c3.append(temp_list)
 
-    temp_list = list()
-    # C3
-    for wtrio in temp_list2:
+    for word_trio in c3:
         count = 0
         for doc in col_word.find():
-            if wtrio[0].decode('utf-8') in doc['word_set'] and wtrio[1].decode('utf-8') in doc['word_set'] and wtrio[2].decode('utf-8') in doc['word_set']:
+            if word_trio[0].decode('utf-8') in doc['word_set']
+                    and word_trio[1].decode('utf-8') in doc['word_set']
+                    and word_trio[2].decode('utf-8') in doc['word_set']:
                 count += 1
-        #L3
+        # Make l3, candidate_L3
         if count >= min_sup:
-            temp_list.append(wtrio)
+            l3.append(word_trio)
             temp_doc = {}
-            temp_doc['item_set'] = wtrio
+            temp_doc['item_set'] = word_trio
             temp_doc['support'] = count
             col_cand3.insert(temp_doc)
-    """
-        TODO:
-        make frequent item_set
-        and insert new dbs (dbname = candidate_L+"length")
-        ex) l-th frequent item set dbname = candidate_Ll
-    """
 
 def p6(length):
+    """
+    Make strong association rule
+    Print all of strong them
+    Duplicated Code, Long Method - Nedd Refactoring!!
+    """
     col_cand1 = db['candidate_L1']
     col_cand2 = db['candidate_L2']
     col_cand3 = db['candidate_L3']
@@ -220,43 +225,60 @@ def p6(length):
 
     if length == 2 :
         for doc in col_cand2.find():
-            wduo = doc['item_set']
+            word_duo = doc['item_set']
             support = doc['support']
             for doc2 in col_cand1.find():
                 conf = float(support)/doc2['support']
                 if conf < min_conf:
-                    continue;
-                if wduo[0] == doc2['item_set']:
-                    print('%s\t=>%s\t%f' % (wduo[0].decode('utf-8'), wduo[1].decode('utf-8'), float(support)/doc2['support']))
-                if wduo[1] == doc2['item_set']:
-                    print('%s\t=>%s\t%f' % (wduo[1].decode('utf-8'), wduo[0].decode('utf-8'), float(support)/doc2['support']))
+                    continue
+                if word_duo[0] == doc2['item_set']:
+                    print('%s\t=>%s\t%f' % (
+                        word_duo[0].decode('utf-8'), word_duo[1].decode('utf-8'),
+                        float(support)/doc2['support']))
+                if word_duo[1] == doc2['item_set']:
+                    print('%s\t=>%s\t%f' % (
+                        word_duo[1].decode('utf-8'), word_duo[0].decode('utf-8'),
+                        float(support)/doc2['support']))
     elif length == 3 :
         for doc in col_cand3.find():
-            wtrio = doc['item_set']
+            word_trio = doc['item_set']
             support = doc['support']
             for doc2 in col_cand2.find():
                 conf = float(support)/doc2['support']
                 if conf < min_conf:
-                    continue;
-                if wtrio[0] in doc2['item_set'] and wtrio[1] in doc2['item_set']:
-                    print('%s, %s\t=>%s\t%f' % (wtrio[0].decode('utf-8'), wtrio[1].decode('utf-8'), wtrio[2].decode('utf-8'), float(support)/doc2['support']))
-                if wtrio[1] in doc2['item_set'] and wtrio[2] in doc2['item_set']:
-                    print('%s, %s\t=>%s\t%f' % (wtrio[1].decode('utf-8'), wtrio[2].decode('utf-8'), wtrio[0].decode('utf-8'), float(support)/doc2['support']))
-                if wtrio[2] in doc2['item_set'] and wtrio[0] in doc2['item_set']:
-                    print('%s, %s\t=>%s\t%f' % (wtrio[2].decode('utf-8'), wtrio[0].decode('utf-8'), wtrio[1].decode('utf-8'), float(support)/doc2['support']))
+                    continue
+                if word_trio[0] in doc2['item_set'] and word_trio[1] in doc2['item_set']:
+                    print('%s, %s\t=>%s\t%f' % (
+                        word_trio[0].decode('utf-8'), word_trio[1].decode('utf-8'),
+                        word_trio[2].decode('utf-8'), float(support)/doc2['support']))
+                if word_trio[1] in doc2['item_set'] and word_trio[2] in doc2['item_set']:
+                    print('%s, %s\t=>%s\t%f' % (
+                        word_trio[1].decode('utf-8'), word_trio[2].decode('utf-8'),
+                        word_trio[0].decode('utf-8'), float(support)/doc2['support']))
+                if word_trio[2] in doc2['item_set'] and word_trio[0] in doc2['item_set']:
+                    print('%s, %s\t=>%s\t%f' % (
+                        word_trio[2].decode('utf-8'), word_trio[0].decode('utf-8'),
+                        word_trio[1].decode('utf-8'), float(support)/doc2['support']))
             for doc2 in col_cand1.find():
                 conf = float(support)/doc2['support']
                 if conf < min_conf:
-                    continue;
-                if wtrio[0] == doc2['item_set']:
-                    print('%s\t=>%s, %s\t%f' % (wtrio[0].decode('utf-8'), wtrio[1].decode('utf-8'), wtrio[2].decode('utf-8'), float(support)/doc2['support']))
-                if wtrio[1] == doc2['item_set']:
-                    print('%s\t=>%s, %s\t%f' % (wtrio[1].decode('utf-8'), wtrio[2].decode('utf-8'), wtrio[0].decode('utf-8'), float(support)/doc2['support']))
-                if wtrio[2] == doc2['item_set']:
-                    print('%s\t=>%s, %s\t%f' % (wtrio[2].decode('utf-8'), wtrio[0].decode('utf-8'), wtrio[1].decode('utf-8'), float(support)/doc2['support']))
+                    continue
+                if word_trio[0] == doc2['item_set']:
+                    print('%s\t=>%s, %s\t%f' % (
+                        word_trio[0].decode('utf-8'), word_trio[1].decode('utf-8'),
+                        word_trio[2].decode('utf-8'), float(support)/doc2['support']))
+                if word_trio[1] == doc2['item_set']:
+                    print('%s\t=>%s, %s\t%f' % (
+                        word_trio[1].decode('utf-8'), word_trio[2].decode('utf-8'),
+                        word_trio[0].decode('utf-8'), float(support)/doc2['support']))
+                if word_trio[2] == doc2['item_set']:
+                    print('%s\t=>%s, %s\t%f' % (
+                        word_trio[2].decode('utf-8'), word_trio[0].decode('utf-8'),
+                        word_trio[1].decode('utf-8'), float(support)/doc2['support']))
     else:
         print('Invalid length')
 
+# Main
 if __name__ == "__main__" :
     make_stop_word()
     printMenu()
