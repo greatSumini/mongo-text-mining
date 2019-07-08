@@ -9,17 +9,19 @@ from pymongo import MongoClient
 from bson import ObjectId
 from itertools import combinations
 
-# DB info
+# DB, FILE info
 DBname = "db******"
 conn = MongoClient('******.sogang.ac.kr')
 db = conn[DBname]
 db.authenticate(DBname, DBname)
+FILEname = "wordList.txt"
 
 # Variables
 stop_word = {}
 
 def make_stop_word():
     """Make stop_word"""
+    f = open(FILEname, "r")
     while True:
         line = f.readline()
         if not line:
@@ -110,7 +112,7 @@ def p5(length):
     Make frequent item set of given length
     Insert new dbs (dbname = candidate_L+"length")
     ex) db['candidate_L3']
-    Duplicated Code, Long Method - Nedd Refactoring!!
+    Duplicated Code, Long Method - Need Refactoring!!
     """
     col_freq = db['news_freq']
     col_word = db['news_wordset']
@@ -188,14 +190,14 @@ def p5(length):
     # Make c3
     for i in range(0, len(l2) - 1):
         for j in range(i+1, len(l2)):
+            # for all two words combination in l2
             if l2[i][1] == l2[j][0]:
-                # if two words continuous
+                # if two words continuous, add to c3
                 temp_list = list()
                 temp_list.append(l2[i][0])
                 temp_list.append(l2[j][1])
                 if temp_list in l2:
-                    temp_list.append(l2[i][1])
-                    c3.append(temp_list)
+                    c3.append([l2[i][0], l2[i][1], l2[j][1]])
 
     for word_trio in c3:
         count = 0
@@ -216,7 +218,7 @@ def p6(length):
     """
     Make strong association rule
     Print all of strong them
-    Duplicated Code, Long Method - Nedd Refactoring!!
+    Duplicated Code, Long Method - Need Refactoring!!
     """
     col_cand1 = db['candidate_L1']
     col_cand2 = db['candidate_L2']
